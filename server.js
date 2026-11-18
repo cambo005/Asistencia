@@ -4,13 +4,19 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { pool, init } = require('./db');
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 app.set('trust proxy', 1);
+const ready = init();
+app.use(async (req, res, next) => {
+  try { await ready; next(); } catch (e) { next(e); }
+});
 
 app.use(express.json());
 app.use(express.static('public'));
 app.use(session({
+  store: new pgSession({ pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'solo-para-desarrollo',
   resave: false,
   saveUninitialized: false,
@@ -224,6 +230,15 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-init()
-  .then(() => app.listen(PORT, () => console.log('Servidor en http://localhost:' + PORT)))
-  .catch((e) => { console.error('No se pudo conectar a la base de datos:', e.message); process.exit(1); });
+ready
+  .then(() => {
+    if (!process.env.VERCEL) {
+      app.listen(PORT, () => console.log('Servidor en http://localhost:' + PORT));
+    }
+  })
+  .catch((e) => {
+    console.error('No se pudo conectar a la base de datos:', e.message);
+    if (!process.env.VERCEL) process.exit(1);
+  });
+
+module.exports = app;

@@ -8,7 +8,7 @@ types.setTypeParser(20, (v) => Number(v));
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 10
+  max: process.env.VERCEL ? 3 : 10
 });
 
 async function init() {
